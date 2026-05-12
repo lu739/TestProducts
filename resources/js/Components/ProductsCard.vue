@@ -1,4 +1,5 @@
 <script setup>
+import Button from 'primevue/button';
 import Column from 'primevue/column';
 import DataTable from 'primevue/datatable';
 
@@ -8,6 +9,18 @@ defineProps({
     title: {
         type: String,
         default: 'Товары',
+    },
+    showAddButton: {
+        type: Boolean,
+        default: false,
+    },
+    showIdColumn: {
+        type: Boolean,
+        default: false,
+    },
+    showManageColumn: {
+        type: Boolean,
+        default: false,
     },
     loadError: {
         default: null,
@@ -37,7 +50,7 @@ defineProps({
 
 const first = defineModel('first', { type: Number, required: true });
 
-const emit = defineEmits(['page', 'select-product']);
+const emit = defineEmits(['page', 'select-product', 'add', 'manage-edit', 'manage-delete']);
 
 function onRowClick(event) {
     const id = event.data?.id;
@@ -50,7 +63,17 @@ function onRowClick(event) {
 
 <template>
     <section class="product-card">
-        <h2 class="product-card__title">{{ title }}</h2>
+        <div class="product-card__head">
+            <h2 class="product-card__title">{{ title }}</h2>
+            <Button
+                v-if="showAddButton"
+                type="button"
+                label="Добавить"
+                size="small"
+                class="product-card__add-btn"
+                @click="emit('add')"
+            />
+        </div>
         <p v-if="loadError" class="product-card__error">
             {{ loadError }}
         </p>
@@ -71,15 +94,13 @@ function onRowClick(event) {
             @page="emit('page', $event)"
             @row-click="onRowClick"
         >
-            <Column field="id" header="ID" style="width: 4rem" />
+            <Column
+                v-if="showIdColumn"
+                field="id"
+                header="ID"
+                style="width: 4rem"
+            />
             <Column field="name" header="Название" />
-            <Column field="description" header="Описание">
-                <template #body="{ data }">
-                    <span class="line-clamp-2 max-w-md">{{
-                        data.description ?? '—'
-                    }}</span>
-                </template>
-            </Column>
             <Column header="Категория" style="width: 10rem">
                 <template #body="{ data }">
                     <span v-if="data.category?.name" class="category-badge">{{
@@ -90,13 +111,50 @@ function onRowClick(event) {
             </Column>
             <Column
                 field="price"
-                header="Цена"
                 style="width: 7rem"
-                :header-style="priceAlign"
                 :body-style="priceAlign"
             >
+                <template #header>
+                    <span class="product-card__price-header">Цена</span>
+                </template>
                 <template #body="{ data }">
                     {{ data.price }}
+                </template>
+            </Column>
+            <Column field="description" header="Описание">
+                <template #body="{ data }">
+                    <span class="line-clamp-2 max-w-md">{{
+                        data.description ?? '—'
+                    }}</span>
+                </template>
+            </Column>
+            <Column
+                v-if="showManageColumn"
+                header="Управление товарами"
+                style="width: 6.5rem"
+                :body-style="{ textAlign: 'left', verticalAlign: 'middle' }"
+            >
+                <template #body="{ data }">
+                    <div class="product-card__manage" @click.stop>
+                        <button
+                            type="button"
+                            class="product-card__icon-btn product-card__icon-btn--edit"
+                            v-tooltip.top="'Редактировать'"
+                            aria-label="Редактировать"
+                            @click.stop="emit('manage-edit', data.id)"
+                        >
+                            <i class="pi pi-pencil" aria-hidden="true" />
+                        </button>
+                        <button
+                            type="button"
+                            class="product-card__icon-btn product-card__icon-btn--delete"
+                            v-tooltip.top="'Удалить'"
+                            aria-label="Удалить"
+                            @click.stop="emit('manage-delete', data.id)"
+                        >
+                            <i class="pi pi-trash" aria-hidden="true" />
+                        </button>
+                    </div>
                 </template>
             </Column>
         </DataTable>
@@ -113,12 +171,26 @@ function onRowClick(event) {
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
+.product-card__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
 .product-card__title {
-    margin: 0 0 1rem;
-    font-size: 1.125rem;
-    font-weight: 600;
-    line-height: 1.3;
+    margin: 0;
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
     color: #0f172a;
+    flex: 1;
+    min-width: 0;
+}
+
+.product-card__add-btn {
+    flex-shrink: 0;
 }
 
 .product-card__error {
@@ -174,6 +246,13 @@ function onRowClick(event) {
     vertical-align: middle;
 }
 
+.product-card__price-header {
+    display: block;
+    width: 100%;
+    text-align: right;
+    font-weight: 600;
+}
+
 .category-badge {
     display: inline-block;
     max-width: 100%;
@@ -194,4 +273,46 @@ function onRowClick(event) {
     color: #94a3b8;
     font-size: 0.875rem;
 }
+
+.product-card__manage {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.product-card__icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    padding: 0.35rem;
+    border: none;
+    border-radius: 0.35rem;
+    background: none;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s ease;
+}
+
+.product-card__icon-btn .pi {
+    font-size: 1.05rem;
+}
+
+.product-card__icon-btn--edit {
+    color: #7c3aed;
+}
+
+.product-card__icon-btn--edit:hover {
+    background: rgba(124, 58, 237, 0.12);
+}
+
+.product-card__icon-btn--delete {
+    color: #b91c1c;
+}
+
+.product-card__icon-btn--delete:hover {
+    background: rgba(185, 28, 28, 0.1);
+}
+
 </style>

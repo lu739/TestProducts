@@ -11,6 +11,10 @@ defineProps({
         default: null,
         validator: (v) => v == null || typeof v === 'string',
     },
+    canManage: {
+        type: Boolean,
+        default: false,
+    },
     /** @type {import('vue').PropType<Record<string, unknown>|null>} */
     product: {
         type: Object,
@@ -18,7 +22,7 @@ defineProps({
     },
 });
 
-const emit = defineEmits(['back']);
+const emit = defineEmits(['back', 'edit', 'delete']);
 </script>
 
 <template>
@@ -32,6 +36,28 @@ const emit = defineEmits(['back']);
                 class="product-detail-page__back"
                 @click="emit('back')"
             />
+            <div
+                v-if="canManage && product && !loading && !loadError"
+                class="product-detail-page__actions"
+            >
+                <Button
+                    type="button"
+                    label="Редактировать"
+                    severity="secondary"
+                    outlined
+                    size="small"
+                    class="product-detail-page__edit-btn"
+                    @click="emit('edit')"
+                />
+                <Button
+                    type="button"
+                    label="Удалить"
+                    severity="danger"
+                    outlined
+                    size="small"
+                    @click="emit('delete')"
+                />
+            </div>
         </div>
 
         <div v-if="loading" class="product-detail-page__loading">
@@ -47,8 +73,10 @@ const emit = defineEmits(['back']);
         <div v-else-if="product" class="product-detail-page__card">
             <h1 class="product-detail-page__title">{{ product.name }}</h1>
             <dl class="product-detail-page__grid">
-                <dt>ID</dt>
-                <dd>{{ product.id }}</dd>
+                <template v-if="canManage">
+                    <dt>ID</dt>
+                    <dd>{{ product.id }}</dd>
+                </template>
                 <dt>Категория</dt>
                 <dd>
                     <span v-if="product.category?.name" class="category-badge">{{
@@ -78,11 +106,32 @@ const emit = defineEmits(['back']);
 }
 
 .product-detail-page__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem 1rem;
     margin-bottom: 1.25rem;
 }
 
 .product-detail-page__back {
     font-weight: 600;
+}
+
+.product-detail-page__actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.product-detail-page__edit-btn :deep(.p-button-label) {
+    color: #7c3aed;
+    font-weight: 600;
+}
+
+.product-detail-page__edit-btn:hover :deep(.p-button-label) {
+    color: #6d28d9;
 }
 
 .product-detail-page__loading {

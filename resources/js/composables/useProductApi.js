@@ -8,7 +8,7 @@ import { route } from 'ziggy-js';
  * @param {{ defaultPerPage?: number }} [options]
  */
 export function useProductApi(options = {}) {
-    const defaultPerPage = options.defaultPerPage ?? 10;
+    const defaultPerPage = options.defaultPerPage ?? 15;
 
     const products = ref([]);
     const totalRecords = ref(0);
@@ -65,7 +65,7 @@ export function useProductApi(options = {}) {
     async function createProduct(payload) {
         const { data } = await axios.post(route('products.store'), payload);
 
-        return data;
+        return data?.data ?? data;
     }
 
     /** @param {number|string} id @param {Record<string, unknown>} payload */
@@ -75,7 +75,7 @@ export function useProductApi(options = {}) {
             payload,
         );
 
-        return data;
+        return data?.data ?? data;
     }
 
     /** @param {number|string} id */

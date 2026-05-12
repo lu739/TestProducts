@@ -73,7 +73,7 @@ onMounted(() => {
         </div>
 
         <footer class="layout__footer">
-            <span class="layout__footer-text">TestProducts</span>
+            <span class="layout__footer-text">TestProducts by LiDusha 2026</span>
         </footer>
     </div>
 </template>
@@ -235,6 +235,7 @@ onMounted(() => {
     flex-direction: column;
     align-items: flex-end;
     gap: 0.1rem;
+    margin-inline-end: 1.35rem;
     min-width: 0;
     max-width: min(20rem, 50vw);
     text-align: right;
@@ -278,12 +279,17 @@ onMounted(() => {
 
 .layout__footer {
     flex-shrink: 0;
-    padding: 1rem;
+    padding: 1rem 1rem 1.25rem;
     text-align: center;
-    font-size: 0.8125rem;
     color: var(--layout-muted);
     border-top: 1px solid var(--layout-border);
     background: #fff;
+}
+
+.layout__footer-text {
+    font-size: 1.0625rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
 }
 
 :global(.dark) .layout__footer {

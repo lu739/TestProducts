@@ -51,6 +51,19 @@ class ProductApiTest extends TestCase
         $this->getJson('/api/products?per_page=not-int')->assertUnprocessable();
     }
 
+    public function test_products_index_is_ordered_by_id_descending(): void
+    {
+        $category = Category::factory()->create();
+        Product::factory()->count(5)->create(['category_id' => $category->id]);
+
+        $ids = collect($this->getJson('/api/products')->json('data'))->pluck('id')->all();
+
+        $sorted = $ids;
+        rsort($sorted, SORT_NUMERIC);
+
+        $this->assertSame($sorted, $ids);
+    }
+
     public function test_product_show_includes_category(): void
     {
         $category = Category::factory()->create(['name' => 'Books']);
@@ -97,6 +110,40 @@ class ProductApiTest extends TestCase
             'name' => 'Widget',
             'category_id' => $category->id,
         ]);
+    }
+
+    public function test_product_store_validates_name_price_and_category(): void
+    {
+        $user = User::factory()->create();
+        $category = Category::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+
+        $this->withToken($token)
+            ->postJson('/api/products', [
+                'name' => '',
+                'price' => 0,
+                'category_id' => 999_999,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['name', 'price', 'category_id']);
+
+        $this->withToken($token)
+            ->postJson('/api/products', [
+                'name' => 'Ok',
+                'price' => 0,
+                'category_id' => $category->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['price'])
+            ->assertJsonFragment(['Цена должна быть числом больше 0.']);
+
+        $this->withToken($token)
+            ->postJson('/api/products', [
+                'name' => 'Ok',
+                'price' => 10,
+                'category_id' => $category->id,
+            ])
+            ->assertCreated();
     }
 
     public function test_product_update_and_delete_require_token(): void

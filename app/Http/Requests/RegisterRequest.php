@@ -25,6 +25,16 @@ class RegisterRequest extends FormRequest
         ];
     }
 
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'name' => 'Имя',
+        ];
+    }
+
     public function toUserData(): UserData
     {
         return new UserData(

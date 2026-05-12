@@ -6,6 +6,7 @@ import { definePreset } from '@primeuix/themes';
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import PrimeVue from 'primevue/config';
+import Tooltip from 'primevue/tooltip';
 import { createApp, h } from 'vue';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
@@ -42,6 +43,7 @@ createInertiaApp({
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)
+            .directive('tooltip', Tooltip)
             .use(PrimeVue, {
                 theme: {
                     preset: AppPreset,

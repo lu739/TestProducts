@@ -13,7 +13,7 @@ class ProductRepository implements ProductRepositoryInterface
     {
         return Product::query()
             ->with('category')
-            ->orderBy('id')
+            ->orderByDesc('id')
             ->paginate(perPage: $data->per_page, page: $data->page);
     }
 
@@ -37,8 +37,8 @@ class ProductRepository implements ProductRepositoryInterface
         return $product->fresh(['category']);
     }
 
-    public function delete(int $id): void
+    public function delete(Product $product): void
     {
-        $this->findOrFail($id)->delete();
+        $product->delete();
     }
 }

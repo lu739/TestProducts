@@ -19,8 +19,18 @@ class UpdateProductRequest extends FormRequest
         return [
             'name' => ['sometimes', 'required', 'string', 'max:255'],
             'description' => ['sometimes', 'nullable', 'string'],
-            'price' => ['sometimes', 'required', 'numeric', 'min:0'],
+            'price' => ['sometimes', 'required', 'numeric', 'gt:0'],
             'category_id' => ['sometimes', 'required', 'integer', 'exists:categories,id'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'name' => 'Название',
         ];
     }
 }
