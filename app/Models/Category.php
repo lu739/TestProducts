@@ -18,6 +18,17 @@ class Category extends Model
     ];
 
     /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+        ];
+    }
+
+    /**
      * @return HasMany<Product, $this>
      */
     public function products(): HasMany

@@ -20,18 +20,24 @@ class ProductRepository implements ProductRepositoryInterface
             ->paginate(perPage: $data->per_page, page: $data->page);
     }
 
-    public function findOrFail(int $id, bool $withTrashed = false): Product
+    public function findOrFail(int $id, bool $withTrashed = false): ProductData
     {
-        $query = Product::query()
+        return ProductData::fromModel(Product::query()
             ->when($withTrashed, fn ($q) => $q->withTrashed())
-            ->with('category');
-
-        return $query->findOrFail($id);
+            ->with('category')->findOrFail($id)
+        );
     }
 
-    public function create(array $data): Product
+    public function create(ProductData $data): ProductData
     {
-        return Product::query()->create($data);
+        $product = Product::query()->create([
+            'name' => $data->name,
+            'description' => $data->description,
+            'price' => $data->price,
+            'category_id' => $data->category_id,
+        ]);
+
+        return ProductData::fromModel($product->load('category'));
     }
 
     public function update(ProductData $data): ProductData

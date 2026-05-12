@@ -41,7 +41,8 @@ const deleteModalVisible = ref(false);
 /** @type {import('vue').Ref<number|null>} */
 const deleteTargetId = ref(null);
 const deleteFromDetail = ref(false);
-const deleteTargetIsTrashed = ref(false);
+/** @type {import('vue').Ref<'normal'|'restore'|'force'>} */
+const deleteModalVariant = ref('normal');
 const deleteProcessing = ref(false);
 
 function onPage(event) {
@@ -50,7 +51,7 @@ function onPage(event) {
 
 function reloadProductList() {
     const page = rows.value ? Math.floor(first.value / rows.value) : 0;
-    loadProducts({ page, rows: rows.value });
+    return loadProducts({ page, rows: rows.value });
 }
 
 async function openProduct(id) {
@@ -99,6 +100,7 @@ function closeEditForm() {
 
 async function onProductUpdated() {
     showEditForm.value = false;
+    await reloadProductList();
     if (selectedProductId.value != null) {
         await openProduct(selectedProductId.value);
     }
@@ -109,7 +111,19 @@ function onDeleteFromDetail() {
     if (id == null) {
         return;
     }
-    openDeleteModal(id, true);
+    if (detailProduct.value?.deleted_at) {
+        openForceDeleteModal(id, true);
+    } else {
+        openDeleteModal(id, true);
+    }
+}
+
+function onRestoreFromDetail() {
+    const id = selectedProductId.value;
+    if (id == null) {
+        return;
+    }
+    openRestoreModal(id, true);
 }
 
 async function openProductForEdit(id) {
@@ -121,22 +135,38 @@ async function openProductForEdit(id) {
 }
 
 function onDeleteFromList(id) {
-    openDeleteModal(id, false);
+    const row = products.value.find((p) => p.id === id);
+    if (row?.deleted_at) {
+        openForceDeleteModal(id, false);
+    } else {
+        openDeleteModal(id, false);
+    }
 }
 
 function onManageRestoreFromList(id) {
-    openDeleteModal(id, false);
+    openRestoreModal(id, false);
 }
 
 function openDeleteModal(id, fromDetail) {
+    deleteModalVariant.value = 'normal';
     deleteTargetId.value = id;
     deleteFromDetail.value = fromDetail;
-    if (fromDetail && detailProduct.value?.id === id) {
-        deleteTargetIsTrashed.value = !!detailProduct.value?.deleted_at;
-    } else {
-        const row = products.value.find((p) => p.id === id);
-        deleteTargetIsTrashed.value = !!row?.deleted_at;
-    }
+    detailError.value = null;
+    deleteModalVisible.value = true;
+}
+
+function openRestoreModal(id, fromDetail) {
+    deleteModalVariant.value = 'restore';
+    deleteTargetId.value = id;
+    deleteFromDetail.value = fromDetail;
+    detailError.value = null;
+    deleteModalVisible.value = true;
+}
+
+function openForceDeleteModal(id, fromDetail) {
+    deleteModalVariant.value = 'force';
+    deleteTargetId.value = id;
+    deleteFromDetail.value = fromDetail;
     detailError.value = null;
     deleteModalVisible.value = true;
 }
@@ -151,7 +181,7 @@ async function confirmSoftDelete() {
         await softDeleteProduct(id);
         deleteModalVisible.value = false;
         deleteTargetId.value = null;
-        deleteTargetIsTrashed.value = false;
+        deleteModalVariant.value = 'normal';
         if (deleteFromDetail.value) {
             backToList();
         }
@@ -179,7 +209,7 @@ async function confirmForceDelete() {
         await forceDeleteProduct(id);
         deleteModalVisible.value = false;
         deleteTargetId.value = null;
-        deleteTargetIsTrashed.value = false;
+        deleteModalVariant.value = 'normal';
         if (deleteFromDetail.value) {
             backToList();
         }
@@ -207,7 +237,7 @@ async function confirmRestore() {
         await restoreProduct(id);
         deleteModalVisible.value = false;
         deleteTargetId.value = null;
-        deleteTargetIsTrashed.value = false;
+        deleteModalVariant.value = 'normal';
         if (deleteFromDetail.value) {
             await openProduct(id);
         }
@@ -251,6 +281,7 @@ onMounted(() => {
             @back="backToList"
             @edit="onEditFromDetail"
             @delete="onDeleteFromDetail"
+            @restore="onRestoreFromDetail"
         />
         <ProductEditForm
             v-else-if="showEditForm && detailProduct"
@@ -286,7 +317,7 @@ onMounted(() => {
         <ProductDeleteConfirmModal
             v-model:visible="deleteModalVisible"
             :processing="deleteProcessing"
-            :target-is-trashed="deleteTargetIsTrashed"
+            :variant="deleteModalVariant"
             @soft="confirmSoftDelete"
             @restore="confirmRestore"
             @force="confirmForceDelete"

@@ -29,6 +29,9 @@ class Product extends Model
     {
         return [
             'price' => 'decimal:2',
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+            'deleted_at' => 'datetime',
         ];
     }
 

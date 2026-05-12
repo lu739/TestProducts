@@ -22,13 +22,9 @@ class ProductController extends Controller
         private readonly ProductRepositoryInterface $productRepository,
     ) {}
 
-    /**
-     * @throws AuthorizationException
-     */
+
     public function index(BaseIndexRequest $request): ProductCollection
     {
-        $this->authorize('viewAny', Product::class);
-
         $withTrashed = $request->user('sanctum') !== null;
 
         $paginator = $this->productRepository->paginate(
@@ -39,14 +35,11 @@ class ProductController extends Controller
         return new ProductCollection($paginator);
     }
 
-    /**
-     * @throws AuthorizationException
-     */
+
     public function show(Request $request, int $id): ProductResource
     {
         $withTrashed = $request->user('sanctum') !== null;
         $product = $this->productRepository->findOrFail($id, $withTrashed);
-        $this->authorize('view', $product);
 
         return new ProductResource($product);
     }
@@ -56,10 +49,10 @@ class ProductController extends Controller
      */
     public function store(StoreProductRequest $request): JsonResponse
     {
-        $this->authorize('create', Product::class);
+        $this->authorize('action', Product::class);
+        $validated = $request->validated();
 
-        $product = $this->productRepository->create($request->validated());
-        $product->load('category');
+        $product = $this->productRepository->create(ProductData::from($validated));
 
         return ProductResource::make($product)->response()->setStatusCode(201);
     }
@@ -69,11 +62,11 @@ class ProductController extends Controller
      */
     public function update(UpdateProductRequest $request, int $id): ProductResource
     {
-        $product = $this->productRepository->findOrFail($id);
-        $this->authorize('update', $product);
+        $this->authorize('action', Product::class);
 
-        $productData = ProductData::fromProductForUpdate($product, $request->validated());
-        $updated = $this->productRepository->update($productData);
+        $validated = $request->validated();
+        $validated['id'] = $id;
+        $updated = $this->productRepository->update(ProductData::from($validated));
 
         return new ProductResource($updated);
     }
@@ -83,11 +76,8 @@ class ProductController extends Controller
      */
     public function destroy(int $id): Response
     {
-        $product = $this->productRepository->findOrFail($id, true);
-        $this->authorize('delete', $product);
-        if ($product->trashed()) {
-            return response()->noContent();
-        }
+        $this->authorize('action', Product::class);
+
         $this->productRepository->softDelete($id);
 
         return response()->noContent();
@@ -98,8 +88,8 @@ class ProductController extends Controller
      */
     public function forceDestroy(int $id): Response
     {
-        $product = $this->productRepository->findOrFail($id, true);
-        $this->authorize('forceDelete', $product);
+        $this->authorize('action', Product::class);
+
         $this->productRepository->forceDelete($id);
 
         return response()->noContent();
@@ -108,16 +98,9 @@ class ProductController extends Controller
     /**
      * @throws AuthorizationException
      */
-    public function restore(int $id): JsonResponse
+    public function restore(int $id): ProductResource
     {
-        $product = $this->productRepository->findOrFail($id, true);
-        $this->authorize('restore', $product);
-
-        if (! $product->trashed()) {
-            return response()->json([
-                'message' => 'Товар не скрыт, восстановление не требуется.',
-            ], 422);
-        }
+        $this->authorize('action', Product::class);
 
         $productData = $this->productRepository->restore($id);
 

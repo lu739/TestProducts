@@ -7,37 +7,12 @@ use App\Models\User;
 
 class ProductPolicy
 {
-    public function viewAny(?User $user): bool
+    public function view(?User $user): bool
     {
         return true;
     }
 
-    public function view(?User $user, Product $product): bool
-    {
-        return true;
-    }
-
-    public function create(?User $user): bool
-    {
-        return $user !== null;
-    }
-
-    public function update(?User $user, Product $product): bool
-    {
-        return $user !== null && ! $product->trashed();
-    }
-
-    public function delete(?User $user, Product $product): bool
-    {
-        return $user !== null;
-    }
-
-    public function forceDelete(?User $user, Product $product): bool
-    {
-        return $user !== null;
-    }
-
-    public function restore(?User $user, Product $product): bool
+    public function action(?User $user): bool
     {
         return $user !== null;
     }

@@ -182,6 +182,19 @@ class ProductApiTest extends TestCase
         $this->assertSoftDeleted('products', ['id' => $product->id]);
     }
 
+    public function test_product_destroy_when_already_soft_deleted_returns_422(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+        $product = Product::factory()->create();
+        $product->delete();
+
+        $this->withToken($token)
+            ->deleteJson('/api/products/'.$product->id)
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Товар уже скрыт.');
+    }
+
     public function test_product_force_destroy_with_token_removes_row(): void
     {
         $user = User::factory()->create();

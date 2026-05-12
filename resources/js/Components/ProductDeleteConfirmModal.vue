@@ -9,9 +9,11 @@ defineProps({
         type: Boolean,
         default: false,
     },
-    targetIsTrashed: {
-        type: Boolean,
-        default: false,
+    /** normal — обычный товар; restore — только восстановление; force — только безвозвратное удаление (скрытый товар) */
+    variant: {
+        type: String,
+        default: 'normal',
+        validator: (v) => ['normal', 'restore', 'force'].includes(v),
     },
 });
 
@@ -21,7 +23,9 @@ const emit = defineEmits(['soft', 'force', 'restore']);
 <template>
     <Dialog
         v-model:visible="visible"
-        header="Удаление товара"
+        :header="
+            variant === 'restore' ? 'Восстановление товара' : 'Удаление товара'
+        "
         modal
         class="product-delete-dialog"
         :style="{ width: 'min(40rem, 96vw)' }"
@@ -30,15 +34,24 @@ const emit = defineEmits(['soft', 'force', 'restore']);
         :dismissable-mask="!processing"
     >
         <p class="product-delete-dialog__text">
-            <template v-if="targetIsTrashed">
-                Товар скрыт. Восстановите его или удалите навсегда.
+            <template v-if="variant === 'restore'">
+                Товар скрыт. Вы можете восстановить его.
+            </template>
+            <template v-else-if="variant === 'force'">
+                Товар скрыт. Он будет удалён навсегда без возможности восстановления.
             </template>
             <template v-else>
                 Подтвердите удаление и выберите его тип.
             </template>
         </p>
         <template #footer>
-            <div class="product-delete-dialog__footer">
+            <div
+                class="product-delete-dialog__footer"
+                :class="{
+                    'product-delete-dialog__footer--two':
+                        variant === 'restore' || variant === 'force',
+                }"
+            >
                 <Button
                     type="button"
                     label="Отмена"
@@ -48,17 +61,26 @@ const emit = defineEmits(['soft', 'force', 'restore']);
                     :disabled="processing"
                     @click="visible = false"
                 />
+                <template v-if="variant === 'normal'">
+                    <Button
+                        type="button"
+                        label="Скрыть"
+                        outlined
+                        class="product-delete-dialog__footer-btn product-delete-dialog__btn-soft"
+                        :disabled="processing"
+                        @click="emit('soft')"
+                    />
+                    <Button
+                        type="button"
+                        label="Удалить насовсем"
+                        severity="danger"
+                        class="product-delete-dialog__footer-btn"
+                        :disabled="processing"
+                        @click="emit('force')"
+                    />
+                </template>
                 <Button
-                    v-if="!targetIsTrashed"
-                    type="button"
-                    label="Скрыть"
-                    outlined
-                    class="product-delete-dialog__footer-btn product-delete-dialog__btn-soft"
-                    :disabled="processing"
-                    @click="emit('soft')"
-                />
-                <Button
-                    v-else
+                    v-else-if="variant === 'restore'"
                     type="button"
                     label="Восстановить"
                     outlined
@@ -67,8 +89,9 @@ const emit = defineEmits(['soft', 'force', 'restore']);
                     @click="emit('restore')"
                 />
                 <Button
+                    v-else-if="variant === 'force'"
                     type="button"
-                    label="Удалить насовсем"
+                    label="Удалить навсегда"
                     severity="danger"
                     class="product-delete-dialog__footer-btn"
                     :disabled="processing"
@@ -95,6 +118,15 @@ const emit = defineEmits(['soft', 'force', 'restore']);
     justify-content: flex-end;
     gap: 0.75rem;
     width: 100%;
+}
+
+.product-delete-dialog__footer--two {
+    flex-wrap: wrap;
+}
+
+.product-delete-dialog__footer--two .product-delete-dialog__footer-btn {
+    flex: 1 1 calc(50% - 0.375rem);
+    min-width: min(12rem, 100%);
 }
 
 .product-delete-dialog__footer-btn {

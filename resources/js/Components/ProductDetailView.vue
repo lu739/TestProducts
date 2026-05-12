@@ -22,7 +22,7 @@ defineProps({
     },
 });
 
-const emit = defineEmits(['back', 'edit', 'delete']);
+const emit = defineEmits(['back', 'edit', 'delete', 'restore']);
 </script>
 
 <template>
@@ -49,6 +49,16 @@ const emit = defineEmits(['back', 'edit', 'delete']);
                     size="small"
                     class="product-detail-page__edit-btn"
                     @click="emit('edit')"
+                />
+                <Button
+                    v-if="product.deleted_at"
+                    type="button"
+                    label="Восстановить"
+                    severity="success"
+                    outlined
+                    size="small"
+                    class="product-detail-page__restore-btn"
+                    @click="emit('restore')"
                 />
                 <Button
                     type="button"
@@ -139,6 +149,15 @@ const emit = defineEmits(['back', 'edit', 'delete']);
 
 .product-detail-page__edit-btn:hover :deep(.p-button-label) {
     color: #6d28d9;
+}
+
+.product-detail-page__restore-btn :deep(.p-button-label) {
+    color: #15803d;
+    font-weight: 600;
+}
+
+.product-detail-page__restore-btn:hover :deep(.p-button-label) {
+    color: #166534;
 }
 
 .product-detail-page__loading {
