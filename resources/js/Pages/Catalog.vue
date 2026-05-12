@@ -1,6 +1,10 @@
 <script setup>
+import axios from 'axios';
 import { Head } from '@inertiajs/vue3';
-import { nextTick, onMounted, ref } from 'vue';
+import InputText from 'primevue/inputtext';
+import CategoryFilterSelect from 'primevue/select';
+import { route } from 'ziggy-js';
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
 import AppLayout from '../Layouts/AppLayout.vue';
 import ProductCreateForm from '../Components/ProductCreateForm.vue';
 import ProductDeleteConfirmModal from '../Components/ProductDeleteConfirmModal.vue';
@@ -12,6 +16,13 @@ import { useProductApi } from '../composables/useProductApi';
 
 loadAuthUserFromStorage();
 const { isLoggedIn } = useAuth();
+
+/** @type {import('vue').Ref<number|null>} */
+const filterCategoryId = ref(null);
+const searchQuery = ref('');
+const categories = ref([]);
+const categoriesLoading = ref(true);
+const categoriesError = ref(null);
 
 const {
     products,
@@ -27,7 +38,11 @@ const {
     softDeleteProduct,
     forceDeleteProduct,
     restoreProduct,
-} = useProductApi({ defaultPerPage: 15 });
+} = useProductApi({
+    defaultPerPage: 15,
+    categoryFilterId: filterCategoryId,
+    searchQuery,
+});
 
 const selectedProductId = ref(null);
 const showCreateForm = ref(false);
@@ -47,6 +62,47 @@ const deleteProcessing = ref(false);
 
 function onPage(event) {
     loadProducts(event);
+}
+
+watch(filterCategoryId, () => {
+    first.value = 0;
+    loadProducts({ page: 0, rows: rows.value });
+});
+
+const SEARCH_DEBOUNCE_MS = 350;
+/** @type {ReturnType<typeof setTimeout>|null} */
+let searchDebounceId = null;
+
+watch(searchQuery, () => {
+    if (searchDebounceId != null) {
+        clearTimeout(searchDebounceId);
+    }
+    searchDebounceId = setTimeout(() => {
+        searchDebounceId = null;
+        first.value = 0;
+        loadProducts({ page: 0, rows: rows.value });
+    }, SEARCH_DEBOUNCE_MS);
+});
+
+onUnmounted(() => {
+    if (searchDebounceId != null) {
+        clearTimeout(searchDebounceId);
+    }
+});
+
+async function loadCategoriesForFilter() {
+    categoriesLoading.value = true;
+    categoriesError.value = null;
+    try {
+        const { data } = await axios.get(route('categories.index'));
+        categories.value = Array.isArray(data?.data) ? data.data : [];
+    } catch (e) {
+        categoriesError.value =
+            e?.response?.data?.message ?? 'Не удалось загрузить категории';
+        categories.value = [];
+    } finally {
+        categoriesLoading.value = false;
+    }
 }
 
 function reloadProductList() {
@@ -265,6 +321,7 @@ function onProductCreated() {
 }
 
 onMounted(() => {
+    loadCategoriesForFilter();
     loadProducts({ page: 0, rows: rows.value });
 });
 </script>
@@ -296,24 +353,54 @@ onMounted(() => {
             @cancel="closeCreateForm"
             @saved="onProductCreated"
         />
-        <ProductsCard
-            v-else
-            v-model:first="first"
-            :products="products"
-            :total-records="totalRecords"
-            :rows="rows"
-            :loading="loading"
-            :load-error="loadError"
-            :show-add-button="isLoggedIn"
-            :show-id-column="isLoggedIn"
-            :show-manage-column="isLoggedIn"
-            @page="onPage"
-            @select-product="openProduct"
-            @add="openCreateForm"
-            @manage-edit="openProductForEdit"
-            @manage-delete="onDeleteFromList"
-            @manage-restore="onManageRestoreFromList"
-        />
+        <div v-else class="catalog-list">
+            <div class="catalog-list__toolbar">
+                <label class="catalog-list__filter catalog-list__filter--search">
+                    <span class="catalog-list__filter-label">Поиск</span>
+                    <InputText
+                        v-model="searchQuery"
+                        class="catalog-list__search-input"
+                        type="search"
+                        placeholder="Название или описание"
+                        autocomplete="off"
+                    />
+                </label>
+                <label class="catalog-list__filter">
+                    <span class="catalog-list__filter-label">Категория</span>
+                    <CategoryFilterSelect
+                        v-model="filterCategoryId"
+                        class="catalog-list__filter-select"
+                        :options="categories"
+                        option-label="name"
+                        option-value="id"
+                        placeholder="Все категории"
+                        :loading="categoriesLoading"
+                        filter
+                        show-clear
+                    />
+                </label>
+                <p v-if="categoriesError" class="catalog-list__filter-error">
+                    {{ categoriesError }}
+                </p>
+            </div>
+            <ProductsCard
+                v-model:first="first"
+                :products="products"
+                :total-records="totalRecords"
+                :rows="rows"
+                :loading="loading"
+                :load-error="loadError"
+                :show-add-button="isLoggedIn"
+                :show-id-column="isLoggedIn"
+                :show-manage-column="isLoggedIn"
+                @page="onPage"
+                @select-product="openProduct"
+                @add="openCreateForm"
+                @manage-edit="openProductForEdit"
+                @manage-delete="onDeleteFromList"
+                @manage-restore="onManageRestoreFromList"
+            />
+        </div>
         <ProductDeleteConfirmModal
             v-model:visible="deleteModalVisible"
             :processing="deleteProcessing"
@@ -324,3 +411,53 @@ onMounted(() => {
         />
     </AppLayout>
 </template>
+
+<style scoped>
+.catalog-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.catalog-list__toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem 1.25rem;
+}
+
+.catalog-list__filter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: min(100%, 16rem);
+}
+
+.catalog-list__filter-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.catalog-list__filter--search {
+    flex: 1 1 12rem;
+    min-width: min(100%, 12rem);
+    max-width: 28rem;
+}
+
+.catalog-list__search-input {
+    width: 100%;
+}
+
+.catalog-list__filter-select {
+    width: 100%;
+    max-width: 20rem;
+}
+
+.catalog-list__filter-error {
+    margin: 0;
+    flex: 1 1 100%;
+    font-size: 0.8125rem;
+    color: #b91c1c;
+}
+</style>

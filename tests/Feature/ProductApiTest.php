@@ -41,6 +41,35 @@ class ProductApiTest extends TestCase
         $this->assertSame(15, $this->getJson(route('products.index', ['per_page' => 15]))->json('meta.per_page'));
     }
 
+    public function test_products_index_filters_by_category_id(): void
+    {
+        $categoryA = Category::factory()->create();
+        $categoryB = Category::factory()->create();
+        Product::factory()->count(4)->create(['category_id' => $categoryA->id]);
+        Product::factory()->count(2)->create(['category_id' => $categoryB->id]);
+
+        $response = $this->getJson(route('products.index', [
+            'filter' => ['category_id' => $categoryA->id],
+        ]));
+
+        $response->assertOk();
+        $this->assertSame(4, $response->json('meta.total'));
+        $this->assertCount(4, $response->json('data'));
+        foreach ($response->json('data') as $row) {
+            $this->assertSame($categoryA->id, $row['category_id']);
+        }
+    }
+
+    public function test_products_index_rejects_unknown_filter_category_id(): void
+    {
+        $category = Category::factory()->create();
+        Product::factory()->count(2)->create(['category_id' => $category->id]);
+
+        $this->getJson(route('products.index', [
+            'filter' => ['category_id' => 999_999],
+        ]))->assertUnprocessable();
+    }
+
     public function test_products_index_rejects_invalid_per_page(): void
     {
         $category = Category::factory()->create();

@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Contracts\Repositories\ProductRepositoryInterface;
 use App\Data\ProductData;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\BaseIndexRequest;
+use App\Http\Requests\ProductIndexRequest;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Http\Resources\ProductCollection;
@@ -20,7 +20,7 @@ class ProductController extends Controller
         private readonly ProductRepositoryInterface $productRepository,
     ) {}
 
-    public function index(BaseIndexRequest $request): ProductCollection
+    public function index(ProductIndexRequest $request): ProductCollection
     {
         $withTrashed = $request->user('sanctum') !== null;
 
