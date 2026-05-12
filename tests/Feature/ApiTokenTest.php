@@ -13,7 +13,7 @@ class ApiTokenTest extends TestCase
 
     public function test_register_returns_token(): void
     {
-        $response = $this->postJson('/api/register', [
+        $response = $this->postJson(route('api.register'), [
             'name' => 'Test User',
             'email' => 'test@example.com',
             'password' => 'Str0ng-test!Pass',
@@ -33,7 +33,7 @@ class ApiTokenTest extends TestCase
             'password' => Hash::make('secret-secret'),
         ]);
 
-        $response = $this->postJson('/api/login', [
+        $response = $this->postJson(route('api.login'), [
             'email' => 'login@example.com',
             'password' => 'secret-secret',
         ]);
@@ -44,7 +44,7 @@ class ApiTokenTest extends TestCase
 
     public function test_user_endpoint_requires_token(): void
     {
-        $this->getJson('/api/user')->assertUnauthorized();
+        $this->getJson(route('api.user'))->assertUnauthorized();
     }
 
     public function test_user_endpoint_with_valid_token(): void
@@ -52,7 +52,7 @@ class ApiTokenTest extends TestCase
         $user = User::factory()->create();
         $token = $user->createToken('test')->plainTextToken;
 
-        $this->getJson('/api/user', [
+        $this->getJson(route('api.user'), [
             'Authorization' => 'Bearer '.$token,
         ])->assertOk()
             ->assertJson(['email' => $user->email]);
@@ -66,7 +66,7 @@ class ApiTokenTest extends TestCase
         $this->assertDatabaseCount('personal_access_tokens', 1);
 
         $this->withToken($token)
-            ->postJson('/api/logout')
+            ->postJson(route('api.logout'))
             ->assertOk();
 
         $this->assertDatabaseCount('personal_access_tokens', 0);

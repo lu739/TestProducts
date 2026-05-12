@@ -3,10 +3,11 @@
 namespace App\Http\Resources;
 
 use App\Data\ProductData;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin \App\Models\Product */
+/** @mixin Product|ProductData */
 class ProductResource extends JsonResource
 {
     /**
@@ -14,6 +15,10 @@ class ProductResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        return ProductData::fromModel($this->resource)->toArray();
+        $resource = $this->resource;
+
+        return $resource instanceof ProductData
+            ? $resource->toArray()
+            : ProductData::fromModel($resource)->toArray();
     }
 }

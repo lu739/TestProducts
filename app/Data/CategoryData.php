@@ -3,11 +3,13 @@
 namespace App\Data;
 
 use App\Models\Category;
-use App\Support\ApiDateTime;
+use DateTimeInterface;
 use Spatie\LaravelData\Data;
 
 class CategoryData extends Data
 {
+    private const string API_DATETIME_FORMAT = 'd M Y H:i:s';
+
     public function __construct(
         public int $id,
         public string $name,
@@ -22,8 +24,13 @@ class CategoryData extends Data
             id: $category->id,
             name: $category->name,
             description: $category->description,
-            created_at: ApiDateTime::format($category->created_at),
-            updated_at: ApiDateTime::format($category->updated_at),
+            created_at: self::formatForApi($category->created_at),
+            updated_at: self::formatForApi($category->updated_at),
         );
+    }
+
+    private static function formatForApi(?DateTimeInterface $value): ?string
+    {
+        return $value?->format(self::API_DATETIME_FORMAT);
     }
 }

@@ -7,6 +7,7 @@ import CategorySelect from 'primevue/select';
 import Textarea from 'primevue/textarea';
 import { route } from 'ziggy-js';
 import { onMounted, reactive, ref, watch } from 'vue';
+import { validateProductForm } from '../validation/productForm';
 
 const props = defineProps({
     initialProduct: {
@@ -84,6 +85,13 @@ function resetErrors() {
 
 async function submit() {
     resetErrors();
+    const clientErrors = validateProductForm(form, categories.value);
+    if (Object.keys(clientErrors).length > 0) {
+        fieldErrors.value = clientErrors;
+
+        return;
+    }
+
     processing.value = true;
     const id = props.initialProduct?.id;
     if (id == null) {
@@ -130,13 +138,13 @@ function onCancel() {
             {{ message }}
         </p>
 
-        <form class="create-form__body" @submit.prevent="submit">
+        <form class="create-form__body" novalidate @submit.prevent="submit">
             <label class="create-form__field">
                 <span class="create-form__label">Название</span>
                 <InputText
                     v-model="form.name"
                     class="create-form__control"
-                    required
+                    :invalid="!!fieldErrors.name?.[0]"
                     maxlength="255"
                     autocomplete="off"
                 />
@@ -150,6 +158,7 @@ function onCancel() {
                 <CategorySelect
                     v-model="form.category_id"
                     class="create-form__control create-form__select"
+                    :invalid="!!fieldErrors.category_id?.[0]"
                     :options="categories"
                     option-label="name"
                     option-value="id"
@@ -168,6 +177,7 @@ function onCancel() {
                 <InputNumber
                     v-model="form.price"
                     class="create-form__control create-form__number"
+                    :invalid="!!fieldErrors.price?.[0]"
                     :min-fraction-digits="2"
                     :max-fraction-digits="2"
                     :min="0.01"
@@ -185,6 +195,7 @@ function onCancel() {
                 <Textarea
                     v-model="form.description"
                     class="create-form__control"
+                    :invalid="!!fieldErrors.description?.[0]"
                     rows="4"
                 />
                 <span v-if="fieldErrors.description?.[0]" class="create-form__err">{{

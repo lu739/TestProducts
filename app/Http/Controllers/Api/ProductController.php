@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Contracts\Repositories\ProductRepositoryInterface;
+use App\Data\ProductData;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\BaseIndexRequest;
 use App\Http\Requests\StoreProductRequest;
 use App\Http\Requests\UpdateProductRequest;
 use App\Http\Resources\ProductCollection;
 use App\Http\Resources\ProductResource;
-use App\Models\Product;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 
 class ProductController extends Controller
@@ -20,64 +20,64 @@ class ProductController extends Controller
         private readonly ProductRepositoryInterface $productRepository,
     ) {}
 
-    /**
-     * @throws AuthorizationException
-     */
     public function index(BaseIndexRequest $request): ProductCollection
     {
-        $this->authorize('viewAny', Product::class);
+        $withTrashed = $request->user('sanctum') !== null;
 
-        $paginator = $this->productRepository->paginate($request->toIndexData());
+        $paginator = $this->productRepository->paginate(
+            $request->toIndexData(),
+            $withTrashed,
+        );
 
         return new ProductCollection($paginator);
     }
 
-    /**
-     * @throws AuthorizationException
-     */
-    public function show(int $id): ProductResource
+    public function show(Request $request, int $id): ProductResource
     {
-        $product = $this->productRepository->findOrFail($id);
-        $this->authorize('view', $product);
+        $withTrashed = $request->user('sanctum') !== null;
+
+        $product = $this->productRepository->findOrFail($id, $withTrashed);
 
         return new ProductResource($product);
     }
 
-    /**
-     * @throws AuthorizationException
-     */
     public function store(StoreProductRequest $request): JsonResponse
     {
-        $this->authorize('create', Product::class);
+        $validated = $request->validated();
 
-        $product = $this->productRepository->create($request->validated());
-        $product->load('category');
+        $product = $this->productRepository->create(ProductData::from($validated));
 
         return ProductResource::make($product)->response()->setStatusCode(201);
     }
 
-    /**
-     * @throws AuthorizationException
-     */
     public function update(UpdateProductRequest $request, int $id): ProductResource
     {
-        $product = $this->productRepository->findOrFail($id);
-        $this->authorize('update', $product);
+        $validated = $request->validated();
+        $validated['id'] = $id;
 
-        return new ProductResource(
-            $this->productRepository->update($product, $request->validated())
-        );
+        $updated = $this->productRepository->update(ProductData::from($validated));
+
+        return new ProductResource($updated);
     }
 
-    /**
-     * @throws AuthorizationException
-     */
     public function destroy(int $id): Response
     {
-        $product = $this->productRepository->findOrFail($id);
-        $this->authorize('delete', $product);
-        $this->productRepository->delete($product);
+        $this->productRepository->softDelete($id);
 
         return response()->noContent();
+    }
+
+    public function forceDestroy(int $id): Response
+    {
+        $this->productRepository->forceDelete($id);
+
+        return response()->noContent();
+    }
+
+    public function restore(int $id): ProductResource
+    {
+        $productData = $this->productRepository->restore($id);
+
+        return new ProductResource($productData);
     }
 }
