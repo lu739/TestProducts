@@ -16,8 +16,8 @@ class ApiTokenTest extends TestCase
         $response = $this->postJson('/api/register', [
             'name' => 'Test User',
             'email' => 'test@example.com',
-            'password' => 'password123',
-            'password_confirmation' => 'password123',
+            'password' => 'Str0ng-test!Pass',
+            'password_confirmation' => 'Str0ng-test!Pass',
         ]);
 
         $response->assertCreated()
