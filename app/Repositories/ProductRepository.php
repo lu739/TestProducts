@@ -6,10 +6,16 @@ use App\Contracts\Repositories\ProductRepositoryInterface;
 use App\Data\IndexData;
 use App\Data\ProductData;
 use App\Models\Product;
+use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Contracts\Auth\Access\Gate;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
-class ProductRepository implements ProductRepositoryInterface
+readonly class ProductRepository implements ProductRepositoryInterface
 {
+    public function __construct(
+        private Gate $gate,
+    ) {}
+
     public function paginate(IndexData $data, ?bool $withTrashed = false): LengthAwarePaginator
     {
         return Product::query()
@@ -28,8 +34,13 @@ class ProductRepository implements ProductRepositoryInterface
         );
     }
 
+    /**
+     * @throws AuthorizationException
+     */
     public function create(ProductData $data): ProductData
     {
+        $this->gate->authorize('action', Product::class);
+
         $product = Product::query()->create([
             'name' => $data->name,
             'description' => $data->description,
@@ -40,8 +51,13 @@ class ProductRepository implements ProductRepositoryInterface
         return ProductData::fromModel($product->load('category'));
     }
 
+    /**
+     * @throws AuthorizationException
+     */
     public function update(ProductData $data): ProductData
     {
+        $this->gate->authorize('action', Product::class);
+
         $product = Product::query()
             ->with('category')
             ->findOrFail($data->id);
@@ -57,20 +73,35 @@ class ProductRepository implements ProductRepositoryInterface
         return ProductData::fromModel($product->fresh(['category']));
     }
 
+    /**
+     * @throws AuthorizationException
+     */
     public function softDelete(int $id): void
     {
+        $this->gate->authorize('action', Product::class);
+
         $product = Product::query()->findOrFail($id);
         $product->delete();
     }
 
+    /**
+     * @throws AuthorizationException
+     */
     public function forceDelete(int $id): void
     {
+        $this->gate->authorize('action', Product::class);
+
         $product = Product::query()->withTrashed()->findOrFail($id);
         $product->forceDelete();
     }
 
+    /**
+     * @throws AuthorizationException
+     */
     public function restore(int $id): ProductData
     {
+        $this->gate->authorize('action', Product::class);
+
         $product = Product::onlyTrashed()->findOrFail($id);
         $product->restore();
 
