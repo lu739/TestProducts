@@ -18,6 +18,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', [AuthController::class, 'user'])->name('api.user');
     Route::post('/logout', [AuthController::class, 'logout'])->name('api.logout');
 
+    Route::post('/products/{id}/restore', [ProductController::class, 'restore'])
+        ->whereNumber('id')
+        ->name('products.restore');
+
+    Route::delete('/products/{id}/force', [ProductController::class, 'forceDestroy'])
+        ->whereNumber('id')
+        ->name('products.force-destroy');
+
     Route::apiResource('products', ProductController::class)
         ->only(['store', 'update', 'destroy'])
         ->parameters(['product' => 'id']);

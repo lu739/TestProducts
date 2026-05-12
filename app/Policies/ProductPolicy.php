@@ -24,10 +24,20 @@ class ProductPolicy
 
     public function update(?User $user, Product $product): bool
     {
-        return $user !== null;
+        return $user !== null && ! $product->trashed();
     }
 
     public function delete(?User $user, Product $product): bool
+    {
+        return $user !== null;
+    }
+
+    public function forceDelete(?User $user, Product $product): bool
+    {
+        return $user !== null;
+    }
+
+    public function restore(?User $user, Product $product): bool
     {
         return $user !== null;
     }

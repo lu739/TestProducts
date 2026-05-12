@@ -22,7 +22,7 @@ class ProductApiTest extends TestCase
         $response->assertOk()
             ->assertJsonStructure([
                 'data' => [
-                    '*' => ['id', 'name', 'description', 'price', 'category_id', 'category', 'created_at', 'updated_at'],
+                    '*' => ['id', 'name', 'description', 'price', 'category_id', 'category', 'created_at', 'updated_at', 'deleted_at'],
                 ],
                 'links',
                 'meta',
@@ -75,7 +75,8 @@ class ProductApiTest extends TestCase
         $this->getJson('/api/products/'.$product->id)
             ->assertOk()
             ->assertJsonPath('data.name', 'Novel')
-            ->assertJsonPath('data.category.name', 'Books');
+            ->assertJsonPath('data.category.name', 'Books')
+            ->assertJsonPath('data.deleted_at', null);
     }
 
     public function test_product_store_requires_authentication(): void
@@ -168,7 +169,7 @@ class ProductApiTest extends TestCase
         $this->assertDatabaseHas('products', ['id' => $product->id, 'name' => 'New']);
     }
 
-    public function test_product_delete_with_token(): void
+    public function test_product_delete_with_token_soft_deletes(): void
     {
         $user = User::factory()->create();
         $token = $user->createToken('test')->plainTextToken;
@@ -178,6 +179,134 @@ class ProductApiTest extends TestCase
             ->deleteJson('/api/products/'.$product->id)
             ->assertNoContent();
 
+        $this->assertSoftDeleted('products', ['id' => $product->id]);
+    }
+
+    public function test_product_force_destroy_with_token_removes_row(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+        $product = Product::factory()->create();
+
+        $this->withToken($token)
+            ->deleteJson('/api/products/'.$product->id.'/force')
+            ->assertNoContent();
+
         $this->assertDatabaseMissing('products', ['id' => $product->id]);
+    }
+
+    public function test_products_index_excludes_soft_deleted(): void
+    {
+        $category = Category::factory()->create();
+        $visible = Product::factory()->create(['category_id' => $category->id]);
+        $hidden = Product::factory()->create(['category_id' => $category->id]);
+        $hidden->delete();
+
+        $response = $this->getJson('/api/products');
+
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertContains($visible->id, $ids);
+        $this->assertNotContains($hidden->id, $ids);
+        foreach ($response->json('data') as $row) {
+            $this->assertNull($row['deleted_at']);
+        }
+    }
+
+    public function test_products_index_with_token_includes_soft_deleted(): void
+    {
+        $category = Category::factory()->create();
+        $visible = Product::factory()->create(['category_id' => $category->id]);
+        $hidden = Product::factory()->create(['category_id' => $category->id]);
+        $hidden->delete();
+
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+
+        $response = $this->withToken($token)->getJson('/api/products');
+
+        $response->assertOk();
+        $ids = collect($response->json('data'))->pluck('id')->all();
+        $this->assertContains($visible->id, $ids);
+        $this->assertContains($hidden->id, $ids);
+
+        $hiddenRow = collect($response->json('data'))->firstWhere('id', $hidden->id);
+        $this->assertNotNull($hiddenRow);
+        $this->assertNotNull($hiddenRow['deleted_at']);
+    }
+
+    public function test_guest_cannot_view_soft_deleted_product(): void
+    {
+        $product = Product::factory()->create();
+        $product->delete();
+
+        $this->getJson('/api/products/'.$product->id)->assertNotFound();
+    }
+
+    public function test_authenticated_user_can_view_soft_deleted_product(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+        $product = Product::factory()->create();
+        $product->delete();
+
+        $response = $this->withToken($token)
+            ->getJson('/api/products/'.$product->id);
+
+        $response->assertOk()
+            ->assertJsonPath('data.id', $product->id);
+
+        $this->assertNotNull($response->json('data.deleted_at'));
+    }
+
+    public function test_cannot_update_soft_deleted_product(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+        $product = Product::factory()->create(['name' => 'Gone']);
+        $product->delete();
+
+        $this->withToken($token)
+            ->patchJson('/api/products/'.$product->id, ['name' => 'Back'])
+            ->assertNotFound();
+    }
+
+    public function test_product_restore_with_token_restores_soft_deleted(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+        $product = Product::factory()->create(['name' => 'Hidden']);
+        $product->delete();
+
+        $this->withToken($token)
+            ->postJson('/api/products/'.$product->id.'/restore')
+            ->assertOk()
+            ->assertJsonPath('data.name', 'Hidden')
+            ->assertJsonPath('data.deleted_at', null);
+
+        $this->assertDatabaseHas('products', [
+            'id' => $product->id,
+            'deleted_at' => null,
+        ]);
+    }
+
+    public function test_product_restore_returns_422_when_not_trashed(): void
+    {
+        $user = User::factory()->create();
+        $token = $user->createToken('test')->plainTextToken;
+        $product = Product::factory()->create();
+
+        $this->withToken($token)
+            ->postJson('/api/products/'.$product->id.'/restore')
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Товар не скрыт, восстановление не требуется.');
+    }
+
+    public function test_product_restore_requires_authentication(): void
+    {
+        $product = Product::factory()->create();
+        $product->delete();
+
+        $this->postJson('/api/products/'.$product->id.'/restore')->assertUnauthorized();
     }
 }

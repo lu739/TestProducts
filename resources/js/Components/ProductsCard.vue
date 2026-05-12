@@ -50,7 +50,19 @@ defineProps({
 
 const first = defineModel('first', { type: Number, required: true });
 
-const emit = defineEmits(['page', 'select-product', 'add', 'manage-edit', 'manage-delete']);
+const emit = defineEmits([
+    'page',
+    'select-product',
+    'add',
+    'manage-edit',
+    'manage-delete',
+    'manage-restore',
+]);
+
+/** @param {Record<string, unknown>} data */
+function rowClass(data) {
+    return data?.deleted_at ? 'product-card__row--inactive' : '';
+}
 
 function onRowClick(event) {
     const id = event.data?.id;
@@ -87,6 +99,7 @@ function onRowClick(event) {
             :loading="loading"
             data-key="id"
             striped-rows
+            :row-class="rowClass"
             :rows-per-page-options="rowsPerPageOptions"
             paginator-template="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink RowsPerPageDropdown CurrentPageReport"
             current-page-report-template="{first}–{last} из {totalRecords}"
@@ -100,7 +113,17 @@ function onRowClick(event) {
                 header="ID"
                 style="width: 4rem"
             />
-            <Column field="name" header="Название" />
+            <Column field="name" header="Название">
+                <template #body="{ data }">
+                    <div class="product-card__name-cell">
+                        <span class="product-card__name-text">{{ data.name }}</span>
+                        <span
+                            v-if="data.deleted_at"
+                            class="product-card__hidden-badge"
+                            >Скрыт</span>
+                    </div>
+                </template>
+            </Column>
             <Column header="Категория" style="width: 10rem">
                 <template #body="{ data }">
                     <span v-if="data.category?.name" class="category-badge">{{
@@ -136,24 +159,39 @@ function onRowClick(event) {
             >
                 <template #body="{ data }">
                     <div class="product-card__manage" @click.stop>
-                        <button
-                            type="button"
-                            class="product-card__icon-btn product-card__icon-btn--edit"
-                            v-tooltip.top="'Редактировать'"
-                            aria-label="Редактировать"
-                            @click.stop="emit('manage-edit', data.id)"
-                        >
-                            <i class="pi pi-pencil" aria-hidden="true" />
-                        </button>
-                        <button
-                            type="button"
-                            class="product-card__icon-btn product-card__icon-btn--delete"
-                            v-tooltip.top="'Удалить'"
-                            aria-label="Удалить"
-                            @click.stop="emit('manage-delete', data.id)"
-                        >
-                            <i class="pi pi-trash" aria-hidden="true" />
-                        </button>
+                        <div class="product-card__manage-cell">
+                            <button
+                                v-if="!data.deleted_at"
+                                type="button"
+                                class="product-card__icon-btn product-card__icon-btn--edit"
+                                v-tooltip.top="'Редактировать'"
+                                aria-label="Редактировать"
+                                @click.stop="emit('manage-edit', data.id)"
+                            >
+                                <i class="pi pi-pencil" aria-hidden="true" />
+                            </button>
+                            <button
+                                v-else
+                                type="button"
+                                class="product-card__icon-btn product-card__icon-btn--restore"
+                                v-tooltip.top="'Вернуть товар в каталог (отменить скрытие)'"
+                                aria-label="Восстановить товар"
+                                @click.stop="emit('manage-restore', data.id)"
+                            >
+                                <i class="pi pi-undo" aria-hidden="true" />
+                            </button>
+                        </div>
+                        <div class="product-card__manage-cell">
+                            <button
+                                type="button"
+                                class="product-card__icon-btn product-card__icon-btn--delete"
+                                v-tooltip.top="'Удалить'"
+                                aria-label="Удалить"
+                                @click.stop="emit('manage-delete', data.id)"
+                            >
+                                <i class="pi pi-trash" aria-hidden="true" />
+                            </button>
+                        </div>
                     </div>
                 </template>
             </Column>
@@ -236,6 +274,36 @@ function onRowClick(event) {
     background: #f8fafc;
 }
 
+.product-card__table :deep(.p-datatable-tbody > tr.product-card__row--inactive) {
+    cursor: default;
+    color: #9ca3af;
+    background: #e8eaed;
+}
+
+.product-card__table :deep(.p-datatable-tbody > tr.product-card__row--inactive td) {
+    color: #9ca3af;
+}
+
+.product-card__table :deep(.p-datatable-tbody > tr.product-card__row--inactive:hover) {
+    background: #e8eaed;
+}
+
+.product-card__table :deep(.p-datatable-tbody > tr.product-card__row--inactive .category-badge) {
+    opacity: 1;
+    background: #d8dce4;
+    color: #6b7280;
+    border: 1px solid #c4c9d4;
+}
+
+.product-card__table :deep(.p-datatable-tbody > tr.product-card__row--inactive .category-empty) {
+    color: #b0b8c4;
+}
+
+.product-card__table :deep(.p-datatable-tbody > tr.product-card__row--inactive .product-card__icon-btn--delete) {
+    color: #c45c5c;
+    opacity: 0.92;
+}
+
 .product-card__table :deep(.p-datatable-thead > tr > th) {
     padding-top: 0.35rem;
     padding-bottom: 0.35rem;
@@ -274,11 +342,53 @@ function onRowClick(event) {
     font-size: 0.875rem;
 }
 
-.product-card__manage {
+.product-card__name-cell {
     display: flex;
-    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.35rem 0.5rem;
+    min-width: 0;
+}
+
+.product-card__name-text {
+    word-break: break-word;
+    min-width: 0;
+}
+
+.product-card__hidden-badge {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    padding: 0.18rem 0.5rem;
+    border-radius: 9999px;
+    border: 1px solid #cbd5e1;
+    background: #e2e8f0;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    line-height: 1.2;
+    letter-spacing: 0.02em;
+    color: #64748b;
+}
+
+.product-card__table :deep(.p-datatable-tbody > tr.product-card__row--inactive .product-card__hidden-badge) {
+    border-color: #c4c9d4;
+    background: #dce1e8;
+    color: #5b6573;
+}
+
+.product-card__manage {
+    display: inline-grid;
+    grid-template-columns: 2.1rem 2.1rem;
     align-items: center;
     gap: 0.35rem;
+}
+
+.product-card__manage-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.1rem;
+    min-height: 2.1rem;
 }
 
 .product-card__icon-btn {
@@ -305,6 +415,29 @@ function onRowClick(event) {
 
 .product-card__icon-btn--edit:hover {
     background: rgba(124, 58, 237, 0.12);
+}
+
+.product-card__icon-btn--restore {
+    color: #15803d;
+}
+
+.product-card__icon-btn--restore:hover {
+    background: rgba(22, 163, 74, 0.14);
+    color: #166534;
+}
+
+.product-card__table :deep(.p-datatable-tbody > tr.product-card__row--inactive .product-card__icon-btn--restore) {
+    color: #16a34a;
+}
+
+.product-card__table
+    :deep(
+        .p-datatable-tbody
+            > tr.product-card__row--inactive
+            .product-card__icon-btn--restore:hover
+    ) {
+    background: rgba(22, 163, 74, 0.18);
+    color: #14532d;
 }
 
 .product-card__icon-btn--delete {

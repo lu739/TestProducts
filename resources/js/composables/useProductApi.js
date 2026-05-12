@@ -79,8 +79,20 @@ export function useProductApi(options = {}) {
     }
 
     /** @param {number|string} id */
-    async function deleteProduct(id) {
+    async function softDeleteProduct(id) {
         await axios.delete(route('products.destroy', { product: id }));
+    }
+
+    /** @param {number|string} id */
+    async function forceDeleteProduct(id) {
+        await axios.delete(route('products.force-destroy', { id }));
+    }
+
+    /** @param {number|string} id */
+    async function restoreProduct(id) {
+        const { data } = await axios.post(route('products.restore', { id }));
+
+        return data?.data ?? data;
     }
 
     return {
@@ -94,6 +106,8 @@ export function useProductApi(options = {}) {
         fetchProduct,
         createProduct,
         updateProduct,
-        deleteProduct,
+        softDeleteProduct,
+        forceDeleteProduct,
+        restoreProduct,
     };
 }

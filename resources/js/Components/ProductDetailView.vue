@@ -41,6 +41,7 @@ const emit = defineEmits(['back', 'edit', 'delete']);
                 class="product-detail-page__actions"
             >
                 <Button
+                    v-if="!product.deleted_at"
                     type="button"
                     label="Редактировать"
                     severity="secondary"
@@ -71,7 +72,13 @@ const emit = defineEmits(['back', 'edit', 'delete']);
             {{ loadError }}
         </p>
         <div v-else-if="product" class="product-detail-page__card">
-            <h1 class="product-detail-page__title">{{ product.name }}</h1>
+            <div class="product-detail-page__title-row">
+                <h1 class="product-detail-page__title">{{ product.name }}</h1>
+                <span
+                    v-if="product.deleted_at"
+                    class="product-detail-page__hidden-badge"
+                    >Скрыт</span>
+            </div>
             <dl class="product-detail-page__grid">
                 <template v-if="canManage">
                     <dt>ID</dt>
@@ -171,6 +178,31 @@ const emit = defineEmits(['back', 'edit', 'delete']);
     font-weight: 700;
     line-height: 1.25;
     color: #0f172a;
+}
+
+.product-detail-page__title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.product-detail-page__title-row .product-detail-page__title {
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+}
+
+.product-detail-page__hidden-badge {
+    flex-shrink: 0;
+    border-radius: 9999px;
+    padding: 0.2rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1.25;
+    background: #e2e8f0;
+    color: #475569;
 }
 
 .product-detail-page__grid {

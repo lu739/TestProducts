@@ -3,6 +3,7 @@ import { Head } from '@inertiajs/vue3';
 import { nextTick, onMounted, ref } from 'vue';
 import AppLayout from '../Layouts/AppLayout.vue';
 import ProductCreateForm from '../Components/ProductCreateForm.vue';
+import ProductDeleteConfirmModal from '../Components/ProductDeleteConfirmModal.vue';
 import ProductDetailView from '../Components/ProductDetailView.vue';
 import ProductEditForm from '../Components/ProductEditForm.vue';
 import ProductsCard from '../Components/ProductsCard.vue';
@@ -23,7 +24,9 @@ const {
     fetchProduct,
     createProduct,
     updateProduct,
-    deleteProduct,
+    softDeleteProduct,
+    forceDeleteProduct,
+    restoreProduct,
 } = useProductApi({ defaultPerPage: 15 });
 
 const selectedProductId = ref(null);
@@ -33,6 +36,13 @@ const detailLoading = ref(false);
 const detailError = ref(null);
 /** @type {import('vue').Ref<Record<string, unknown>|null>} */
 const detailProduct = ref(null);
+
+const deleteModalVisible = ref(false);
+/** @type {import('vue').Ref<number|null>} */
+const deleteTargetId = ref(null);
+const deleteFromDetail = ref(false);
+const deleteTargetIsTrashed = ref(false);
+const deleteProcessing = ref(false);
 
 function onPage(event) {
     loadProducts(event);
@@ -77,7 +87,7 @@ function openCreateForm() {
 }
 
 function onEditFromDetail() {
-    if (!detailProduct.value) {
+    if (!detailProduct.value || detailProduct.value.deleted_at) {
         return;
     }
     showEditForm.value = true;
@@ -94,43 +104,124 @@ async function onProductUpdated() {
     }
 }
 
-async function onDeleteFromDetail() {
+function onDeleteFromDetail() {
     const id = selectedProductId.value;
     if (id == null) {
         return;
     }
-    if (!window.confirm('Удалить этот товар?')) {
-        return;
-    }
-    try {
-        await deleteProduct(id);
-        backToList();
-        reloadProductList();
-    } catch (e) {
-        detailError.value =
-            e?.response?.data?.message ?? 'Не удалось удалить товар';
-    }
+    openDeleteModal(id, true);
 }
 
 async function openProductForEdit(id) {
     await openProduct(id);
     await nextTick();
-    if (detailProduct.value) {
+    if (detailProduct.value && !detailProduct.value.deleted_at) {
         showEditForm.value = true;
     }
 }
 
-async function onDeleteFromList(id) {
-    if (!window.confirm('Удалить этот товар?')) {
+function onDeleteFromList(id) {
+    openDeleteModal(id, false);
+}
+
+function onManageRestoreFromList(id) {
+    openDeleteModal(id, false);
+}
+
+function openDeleteModal(id, fromDetail) {
+    deleteTargetId.value = id;
+    deleteFromDetail.value = fromDetail;
+    if (fromDetail && detailProduct.value?.id === id) {
+        deleteTargetIsTrashed.value = !!detailProduct.value?.deleted_at;
+    } else {
+        const row = products.value.find((p) => p.id === id);
+        deleteTargetIsTrashed.value = !!row?.deleted_at;
+    }
+    detailError.value = null;
+    deleteModalVisible.value = true;
+}
+
+async function confirmSoftDelete() {
+    const id = deleteTargetId.value;
+    if (id == null) {
         return;
     }
+    deleteProcessing.value = true;
     try {
-        await deleteProduct(id);
+        await softDeleteProduct(id);
+        deleteModalVisible.value = false;
+        deleteTargetId.value = null;
+        deleteTargetIsTrashed.value = false;
+        if (deleteFromDetail.value) {
+            backToList();
+        }
         reloadProductList();
     } catch (e) {
-        window.alert(
-            e?.response?.data?.message ?? 'Не удалось удалить товар',
-        );
+        const msg =
+            e?.response?.data?.message ?? 'Не удалось скрыть товар';
+        if (deleteFromDetail.value) {
+            detailError.value = msg;
+        } else {
+            window.alert(msg);
+        }
+    } finally {
+        deleteProcessing.value = false;
+    }
+}
+
+async function confirmForceDelete() {
+    const id = deleteTargetId.value;
+    if (id == null) {
+        return;
+    }
+    deleteProcessing.value = true;
+    try {
+        await forceDeleteProduct(id);
+        deleteModalVisible.value = false;
+        deleteTargetId.value = null;
+        deleteTargetIsTrashed.value = false;
+        if (deleteFromDetail.value) {
+            backToList();
+        }
+        reloadProductList();
+    } catch (e) {
+        const msg =
+            e?.response?.data?.message ?? 'Не удалось удалить товар';
+        if (deleteFromDetail.value) {
+            detailError.value = msg;
+        } else {
+            window.alert(msg);
+        }
+    } finally {
+        deleteProcessing.value = false;
+    }
+}
+
+async function confirmRestore() {
+    const id = deleteTargetId.value;
+    if (id == null) {
+        return;
+    }
+    deleteProcessing.value = true;
+    try {
+        await restoreProduct(id);
+        deleteModalVisible.value = false;
+        deleteTargetId.value = null;
+        deleteTargetIsTrashed.value = false;
+        if (deleteFromDetail.value) {
+            await openProduct(id);
+        }
+        reloadProductList();
+    } catch (e) {
+        const msg =
+            e?.response?.data?.message ?? 'Не удалось восстановить товар';
+        if (deleteFromDetail.value) {
+            detailError.value = msg;
+        } else {
+            window.alert(msg);
+        }
+    } finally {
+        deleteProcessing.value = false;
     }
 }
 
@@ -190,6 +281,15 @@ onMounted(() => {
             @add="openCreateForm"
             @manage-edit="openProductForEdit"
             @manage-delete="onDeleteFromList"
+            @manage-restore="onManageRestoreFromList"
+        />
+        <ProductDeleteConfirmModal
+            v-model:visible="deleteModalVisible"
+            :processing="deleteProcessing"
+            :target-is-trashed="deleteTargetIsTrashed"
+            @soft="confirmSoftDelete"
+            @restore="confirmRestore"
+            @force="confirmForceDelete"
         />
     </AppLayout>
 </template>
