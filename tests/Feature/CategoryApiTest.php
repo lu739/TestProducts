@@ -3,8 +3,6 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
-use App\Models\Product;
-use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -16,7 +14,7 @@ class CategoryApiTest extends TestCase
     {
         Category::factory()->count(3)->create();
 
-        $response = $this->getJson('/api/categories');
+        $response = $this->getJson(route('categories.index'));
 
         $response->assertOk()
             ->assertJsonCount(3, 'data')
@@ -32,7 +30,7 @@ class CategoryApiTest extends TestCase
         Category::factory()->create(['name' => 'Zebra']);
         Category::factory()->create(['name' => 'Alpha']);
 
-        $names = collect($this->getJson('/api/categories')->json('data'))->pluck('name')->all();
+        $names = collect($this->getJson(route('categories.index'))->json('data'))->pluck('name')->all();
 
         $this->assertSame(['Alpha', 'Zebra'], $names);
     }

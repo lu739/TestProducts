@@ -17,7 +17,7 @@ class ProductApiTest extends TestCase
         $category = Category::factory()->create();
         Product::factory()->count(20)->create(['category_id' => $category->id]);
 
-        $response = $this->getJson('/api/products');
+        $response = $this->getJson(route('products.index'));
 
         $response->assertOk()
             ->assertJsonStructure([
@@ -37,8 +37,8 @@ class ProductApiTest extends TestCase
         $category = Category::factory()->create();
         Product::factory()->count(20)->create(['category_id' => $category->id]);
 
-        $this->assertSame(10, $this->getJson('/api/products?per_page=10')->json('meta.per_page'));
-        $this->assertSame(15, $this->getJson('/api/products?per_page=15')->json('meta.per_page'));
+        $this->assertSame(10, $this->getJson(route('products.index', ['per_page' => 10]))->json('meta.per_page'));
+        $this->assertSame(15, $this->getJson(route('products.index', ['per_page' => 15]))->json('meta.per_page'));
     }
 
     public function test_products_index_rejects_invalid_per_page(): void
@@ -46,9 +46,9 @@ class ProductApiTest extends TestCase
         $category = Category::factory()->create();
         Product::factory()->count(5)->create(['category_id' => $category->id]);
 
-        $this->getJson('/api/products?per_page=100')->assertUnprocessable();
-        $this->getJson('/api/products?per_page=5')->assertUnprocessable();
-        $this->getJson('/api/products?per_page=not-int')->assertUnprocessable();
+        $this->getJson(route('products.index', ['per_page' => 100]))->assertUnprocessable();
+        $this->getJson(route('products.index', ['per_page' => 5]))->assertUnprocessable();
+        $this->getJson(route('products.index', ['per_page' => 'not-int']))->assertUnprocessable();
     }
 
     public function test_products_index_is_ordered_by_id_descending(): void
@@ -56,7 +56,7 @@ class ProductApiTest extends TestCase
         $category = Category::factory()->create();
         Product::factory()->count(5)->create(['category_id' => $category->id]);
 
-        $ids = collect($this->getJson('/api/products')->json('data'))->pluck('id')->all();
+        $ids = collect($this->getJson(route('products.index'))->json('data'))->pluck('id')->all();
 
         $sorted = $ids;
         rsort($sorted, SORT_NUMERIC);
@@ -72,7 +72,7 @@ class ProductApiTest extends TestCase
             'name' => 'Novel',
         ]);
 
-        $this->getJson('/api/products/'.$product->id)
+        $this->getJson(route('products.show', ['product' => $product->id]))
             ->assertOk()
             ->assertJsonPath('data.name', 'Novel')
             ->assertJsonPath('data.category.name', 'Books')
@@ -83,7 +83,7 @@ class ProductApiTest extends TestCase
     {
         $category = Category::factory()->create();
 
-        $this->postJson('/api/products', [
+        $this->postJson(route('products.store'), [
             'name' => 'X',
             'price' => 10,
             'category_id' => $category->id,
@@ -97,7 +97,7 @@ class ProductApiTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $this->withToken($token)
-            ->postJson('/api/products', [
+            ->postJson(route('products.store'), [
                 'name' => 'Widget',
                 'description' => 'A widget',
                 'price' => 19.99,
@@ -120,7 +120,7 @@ class ProductApiTest extends TestCase
         $token = $user->createToken('test')->plainTextToken;
 
         $this->withToken($token)
-            ->postJson('/api/products', [
+            ->postJson(route('products.store'), [
                 'name' => '',
                 'price' => 0,
                 'category_id' => 999_999,
@@ -129,7 +129,7 @@ class ProductApiTest extends TestCase
             ->assertJsonValidationErrors(['name', 'price', 'category_id']);
 
         $this->withToken($token)
-            ->postJson('/api/products', [
+            ->postJson(route('products.store'), [
                 'name' => 'Ok',
                 'price' => 0,
                 'category_id' => $category->id,
@@ -139,7 +139,7 @@ class ProductApiTest extends TestCase
             ->assertJsonFragment(['Цена должна быть числом больше 0.']);
 
         $this->withToken($token)
-            ->postJson('/api/products', [
+            ->postJson(route('products.store'), [
                 'name' => 'Ok',
                 'price' => 10,
                 'category_id' => $category->id,
@@ -151,8 +151,8 @@ class ProductApiTest extends TestCase
     {
         $product = Product::factory()->create();
 
-        $this->putJson('/api/products/'.$product->id, ['name' => 'Y'])->assertUnauthorized();
-        $this->deleteJson('/api/products/'.$product->id)->assertUnauthorized();
+        $this->putJson(route('products.update', ['product' => $product->id]), ['name' => 'Y'])->assertUnauthorized();
+        $this->deleteJson(route('products.destroy', ['product' => $product->id]))->assertUnauthorized();
     }
 
     public function test_product_update_with_token(): void
@@ -162,7 +162,12 @@ class ProductApiTest extends TestCase
         $product = Product::factory()->create(['name' => 'Old']);
 
         $this->withToken($token)
-            ->patchJson('/api/products/'.$product->id, ['name' => 'New'])
+            ->patchJson(route('products.update', ['product' => $product->id]), [
+                'name' => 'New',
+                'price' => $product->price,
+                'category_id' => $product->category_id,
+                'description' => $product->description,
+            ])
             ->assertOk()
             ->assertJsonPath('data.name', 'New');
 
@@ -176,13 +181,13 @@ class ProductApiTest extends TestCase
         $product = Product::factory()->create();
 
         $this->withToken($token)
-            ->deleteJson('/api/products/'.$product->id)
+            ->deleteJson(route('products.destroy', ['product' => $product->id]))
             ->assertNoContent();
 
         $this->assertSoftDeleted('products', ['id' => $product->id]);
     }
 
-    public function test_product_destroy_when_already_soft_deleted_returns_422(): void
+    public function test_product_destroy_when_already_soft_deleted_returns_not_found(): void
     {
         $user = User::factory()->create();
         $token = $user->createToken('test')->plainTextToken;
@@ -190,9 +195,8 @@ class ProductApiTest extends TestCase
         $product->delete();
 
         $this->withToken($token)
-            ->deleteJson('/api/products/'.$product->id)
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Товар уже скрыт.');
+            ->deleteJson(route('products.destroy', ['product' => $product->id]))
+            ->assertNotFound();
     }
 
     public function test_product_force_destroy_with_token_removes_row(): void
@@ -202,7 +206,7 @@ class ProductApiTest extends TestCase
         $product = Product::factory()->create();
 
         $this->withToken($token)
-            ->deleteJson('/api/products/'.$product->id.'/force')
+            ->deleteJson(route('products.force-destroy', ['id' => $product->id]))
             ->assertNoContent();
 
         $this->assertDatabaseMissing('products', ['id' => $product->id]);
@@ -215,7 +219,7 @@ class ProductApiTest extends TestCase
         $hidden = Product::factory()->create(['category_id' => $category->id]);
         $hidden->delete();
 
-        $response = $this->getJson('/api/products');
+        $response = $this->getJson(route('products.index'));
 
         $response->assertOk();
         $ids = collect($response->json('data'))->pluck('id')->all();
@@ -236,7 +240,7 @@ class ProductApiTest extends TestCase
         $user = User::factory()->create();
         $token = $user->createToken('test')->plainTextToken;
 
-        $response = $this->withToken($token)->getJson('/api/products');
+        $response = $this->withToken($token)->getJson(route('products.index'));
 
         $response->assertOk();
         $ids = collect($response->json('data'))->pluck('id')->all();
@@ -253,7 +257,7 @@ class ProductApiTest extends TestCase
         $product = Product::factory()->create();
         $product->delete();
 
-        $this->getJson('/api/products/'.$product->id)->assertNotFound();
+        $this->getJson(route('products.show', ['product' => $product->id]))->assertNotFound();
     }
 
     public function test_authenticated_user_can_view_soft_deleted_product(): void
@@ -264,7 +268,7 @@ class ProductApiTest extends TestCase
         $product->delete();
 
         $response = $this->withToken($token)
-            ->getJson('/api/products/'.$product->id);
+            ->getJson(route('products.show', ['product' => $product->id]));
 
         $response->assertOk()
             ->assertJsonPath('data.id', $product->id);
@@ -280,7 +284,12 @@ class ProductApiTest extends TestCase
         $product->delete();
 
         $this->withToken($token)
-            ->patchJson('/api/products/'.$product->id, ['name' => 'Back'])
+            ->patchJson(route('products.update', ['product' => $product->id]), [
+                'name' => 'Back',
+                'price' => $product->price,
+                'category_id' => $product->category_id,
+                'description' => $product->description,
+            ])
             ->assertNotFound();
     }
 
@@ -292,7 +301,7 @@ class ProductApiTest extends TestCase
         $product->delete();
 
         $this->withToken($token)
-            ->postJson('/api/products/'.$product->id.'/restore')
+            ->postJson(route('products.restore', ['id' => $product->id]))
             ->assertOk()
             ->assertJsonPath('data.name', 'Hidden')
             ->assertJsonPath('data.deleted_at', null);
@@ -303,16 +312,15 @@ class ProductApiTest extends TestCase
         ]);
     }
 
-    public function test_product_restore_returns_422_when_not_trashed(): void
+    public function test_product_restore_when_not_trashed_returns_not_found(): void
     {
         $user = User::factory()->create();
         $token = $user->createToken('test')->plainTextToken;
         $product = Product::factory()->create();
 
         $this->withToken($token)
-            ->postJson('/api/products/'.$product->id.'/restore')
-            ->assertStatus(422)
-            ->assertJsonPath('message', 'Товар не скрыт, восстановление не требуется.');
+            ->postJson(route('products.restore', ['id' => $product->id]))
+            ->assertNotFound();
     }
 
     public function test_product_restore_requires_authentication(): void
@@ -320,6 +328,6 @@ class ProductApiTest extends TestCase
         $product = Product::factory()->create();
         $product->delete();
 
-        $this->postJson('/api/products/'.$product->id.'/restore')->assertUnauthorized();
+        $this->postJson(route('products.restore', ['id' => $product->id]))->assertUnauthorized();
     }
 }
