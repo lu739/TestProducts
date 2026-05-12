@@ -20,6 +20,8 @@ readonly class ProductRepository implements ProductRepositoryInterface
     {
         return Product::query()
             ->when($withTrashed, fn ($q) => $q->withTrashed())
+            ->filter($data->filter)
+            ->search($data->search)
             ->with('category')
             ->orderByRaw('deleted_at is null desc')
             ->orderByDesc('id')

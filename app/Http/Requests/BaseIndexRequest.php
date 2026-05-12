@@ -24,6 +24,8 @@ class BaseIndexRequest extends FormRequest
         return [
             'per_page' => ['sometimes', 'integer', 'min:10', 'max:50'],
             'page' => ['sometimes', 'integer', 'min:1', 'max:1000'],
+            'filter' => ['sometimes', 'array'],
+            'search' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -32,6 +34,8 @@ class BaseIndexRequest extends FormRequest
         return new IndexData(
             page: $this->integer('page', self::DEFAULT_PAGE),
             per_page: $this->integer('per_page', self::DEFAULT_PER_PAGE),
+            filter: $this->array('filter', []),
+            search: $this->string('search', null),
         );
     }
 }

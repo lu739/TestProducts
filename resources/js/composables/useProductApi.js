@@ -5,10 +5,16 @@ import { route } from 'ziggy-js';
 /**
  * Состояние и запросы к API товаров (публичный список + CRUD под Sanctum).
  *
- * @param {{ defaultPerPage?: number }} [options]
+ * @param {{
+ *   defaultPerPage?: number;
+ *   categoryFilterId?: import('vue').Ref<number|null>;
+ *   searchQuery?: import('vue').Ref<string>;
+ * }} [options]
  */
 export function useProductApi(options = {}) {
     const defaultPerPage = options.defaultPerPage ?? 15;
+    const categoryFilterId = options.categoryFilterId ?? null;
+    const searchQuery = options.searchQuery ?? null;
 
     const products = ref([]);
     const totalRecords = ref(0);
@@ -31,11 +37,25 @@ export function useProductApi(options = {}) {
         );
 
         try {
+            const params = {
+                page,
+                per_page: perPage,
+            };
+            const catId = categoryFilterId?.value;
+            if (catId != null) {
+                params['filter[category_id]'] = catId;
+            }
+
+            const term =
+                typeof searchQuery?.value === 'string'
+                    ? searchQuery.value.trim()
+                    : '';
+            if (term !== '') {
+                params.search = term;
+            }
+
             const { data } = await axios.get(route('products.index'), {
-                params: {
-                    page,
-                    per_page: perPage,
-                },
+                params,
             });
 
             products.value = data.data;
